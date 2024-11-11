@@ -44,19 +44,21 @@ static void print_array(int n,
 static void kernel_lu(int n,
                       DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
 {
-  int i, j, k;
+int i, j, k;
 
-  #pragma omp target data map(tofrom: A[0:_PB_N][0:_PB_N])
+  #pragma omp target enter data map(to: A[0:_PB_N])
   for (k = 0; k < _PB_N; k++)
   {
-    #pragma omp target teams distribute parallel for
+    #pragma omp target teams distribute parallel for nowait
     for (j = k + 1; j < _PB_N; j++)
       A[k][j] = A[k][j] / A[k][k];
-    #pragma omp target teams distribute parallel for collapse(2)
+    #pragma omp target teams distribute parallel for collapse(2) \
+num_teams(_PB_N/NTHREADS_GPU) thread_limit(NTHREADS_GPU)
     for (i = k + 1; i < _PB_N; i++)
       for (j = k + 1; j < _PB_N; j++)
         A[i][j] = A[i][j] - A[i][k] * A[k][j];
   }
+  #pragma omp target exit data map (from: A[0:_PB_N][0:_PB_N])
 }
 
 int main(int argc, char **argv)
