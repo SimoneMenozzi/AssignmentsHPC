@@ -32,7 +32,6 @@ static void print_array(int n,
   for (i = 0; i < n; i++)
     for (j = 0; j < n; j++)
     {
-      fprintf(stderr, DATA_PRINTF_MODIFIER, A[i][j]);
       if ((i * n + j) % 20 == 0)
         fprintf(stderr, "\n");
     }
@@ -41,28 +40,30 @@ static void print_array(int n,
 
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
-#pragma omp declare target
-static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n)){
-
-#pragma omp target map(to: _PB_N) map(tofrom: A[0:n][0:n])
-#pragma omp teams
+static void kernel_lu(int n,
+                      DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
 {
-    int i, j, k;
-    for (k = 0; k < _PB_N; k++) {
-        #pragma omp distribute parallel for schedule(static)
-        for (j = k + 1; j < _PB_N; j++) {
-            A[k][j] = A[k][j] / A[k][k];
-        }
+  int i, j, k;
+  
 
-        #pragma omp distribute parallel for schedule(static)
-        for (i = k + 1; i < _PB_N; i++) {
-            for (j = k + 1; j < _PB_N; j++) {
-                A[i][j] -= A[i][k] * A[k][j];
-            }
-        }
-    }
-}
 
+  // Parallelizzazione del ciclo su k
+  #pragma omp parallel for private(i, j) shared(A, n)
+  for (k = 0; k < _PB_N; k++)
+  {
+    // Ciclo su j che può essere parallelizzato
+    #pragma omp parallel for
+    for (j = k + 1; j < _PB_N; j++)
+      A[k][j] = A[k][j] / A[k][k];
+
+
+
+    // Ciclo su i e j: parallelizzazione con attenzione alle dipendenze
+    #pragma omp parallel for private(i, j)
+    for (i = k + 1; i < _PB_N; i++)
+      for (j = k + 1; j < _PB_N; j++)
+        A[i][j] = A[i][j] - A[i][k] * A[k][j];
+  }
 }
 
 int main(int argc, char **argv)
