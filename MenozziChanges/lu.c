@@ -52,7 +52,7 @@ static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
         {
             for (k = 0; k < _PB_N; k++) {
                 // Parallelizzazione del ciclo su `j` con vettorizzazione
-                #pragma omp distribute parallel for simd num_threads(NTHREADS_GPU) schedule(dynamic,NTHREADS_GPU)
+                #pragma omp distribute parallel for simd num_threads(NTHREADS_GPU) schedule(static,NTHREADS_GPU)
                 for (j = k + 1; j < _PB_N; j++) {
                     A[k][j] = A[k][j] / A[k][k];
                 }
