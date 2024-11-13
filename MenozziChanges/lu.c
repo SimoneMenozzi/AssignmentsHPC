@@ -45,7 +45,6 @@ static void print_array(int n,
 static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
 {
     int i, j, k;
-    // Mappa `A` al dispositivo una sola volta all'inizio della funzione
     #pragma omp target data map(tofrom: A[0:n][0:n])
     {
         #pragma omp target teams num_teams(_PB_N/NTHREADS_GPU) thread_limit(NTHREADS_GPU) map(tofrom: A[0:n][0:n]) 
@@ -56,7 +55,6 @@ static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
                 for (j = k + 1; j < _PB_N; j++) {
                     A[k][j] = A[k][j] / A[k][k];
                 }
-
                 #pragma omp distribute parallel for simd num_threads(NTHREADS_GPU) schedule(dynamic,NTHREADS_GPU) 
                 for (i = k + 1; i < _PB_N; i++) {
                     for (j = k + 1; j < _PB_N; j++) {
