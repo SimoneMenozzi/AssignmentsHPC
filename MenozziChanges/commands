@@ -1,0 +1,2 @@
+ make EXT_CFLAGS='-DPOLYBENCH_TIME -DNTHREADS_GPU=4' clean  all run
+perf stat -r 10 -e cycles:u,instructions:u,branch-misses:u,cache-misses:u,context-switches:u,page-faults:u  ./lu_acc
