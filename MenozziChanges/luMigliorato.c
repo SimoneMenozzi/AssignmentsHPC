@@ -64,8 +64,7 @@ static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
             }
     }
 }
-// con schedule dynamic rallenta di tipo 0.02 più o meno
-// scheduling dynamic con NTHREADS_GPU da un risultato simile allo scheduling statico 
+
 
 int main(int argc, char **argv)
 {
