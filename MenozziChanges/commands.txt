@@ -1,3 +1,17 @@
 make EXT_CFLAGS='-DPOLYBENCH_TIME -DNTHREADS_GPU=4' clean  all run
 module load perf/1.0
 perf stat -r 10 -e cycles:u,instructions:u,branch-misses:u,cache-misses:u,context-switches:u,page-faults:u  ./lu_acc
+
+static
+void *xmalloc (size_t num)
+{
+  void* prt = NULL;
+  int ret = posix_memalign (&prt, 32, num);
+  if (! prt || ret)
+    {
+      fprintf (stderr, "[PolyBench] posix_memalign: cannot allocate memory");
+      exit (1);
+    }
+  return prt;
+}
+Questo funzione scambiala con quella a riga 380 del file polybench.c nella cartella utilities( idk ma new come variabile gli dava problemi)
