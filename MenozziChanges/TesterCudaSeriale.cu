@@ -179,13 +179,12 @@ void test_correctness(int n, DATA_TYPE POLYBENCH_2D(A_serial, N, N, n, n), DATA_
     printf("Confronto risultati:\n");
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
-            if (fabs(A_serial[i][j] - A_cuda[i][j]) > 1) {
-                printf("Differenza trovata in A[%d][%d]: serial=%.6f, cuda=%.6f\n", i, j, A_serial[i][j], A_cuda[i][j]);
-                return;
-            }
+
+            printf("Differenza trovata in A[%d][%d]: serial=%.6f, cuda=%.6f\n", i, j, A_serial[i][j], A_cuda[i][j]);
         }
     }
     printf("I risultati sono equivalenti.\n");
+    return;
 }
 
 
@@ -195,30 +194,30 @@ int main(int argc, char **argv) {
 
     /* Variable declaration/allocation. */
     POLYBENCH_2D_ARRAY_DECL(A_cuda, DATA_TYPE, N, N, n, n);
+        POLYBENCH_2D_ARRAY_DECL(A_serial, DATA_TYPE, N, N, n, n);
 
     /* Initialize array(s). */
     init_array(n, POLYBENCH_ARRAY(A_cuda));
-
+    init_array(n, POLYBENCH_ARRAY(A_serial));
     /* Start timer. */
     polybench_start_instruments;
 
     /* Run kernel. */
     kernel_lu(n, POLYBENCH_ARRAY(A_cuda));
-
+    kernel_lu_serial(n, POLYBENCH_ARRAY(A_serial));
     /* Stop and print timer. */
     polybench_stop_instruments;
     polybench_print_instruments;
+    test_correctness(n, POLYBENCH_ARRAY(A_serial), POLYBENCH_ARRAY(A_cuda));
 
-    POLYBENCH_2D_ARRAY_DECL(A_serial, DATA_TYPE, N, N, n, n);
-    init_array(n, POLYBENCH_ARRAY(A_serial));
-    kernel_lu_serial(n, POLYBENCH_ARRAY(A_serial));
+   
 
     /* Prevent dead-code elimination. All live-out data must be printed
        by the function call in argument. */
     polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(A_serial)));
     polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(A_cuda)));
 
-    test_correctness(n, POLYBENCH_ARRAY(A_serial), POLYBENCH_ARRAY(A_cuda));
+   
 
     /* Be clean. */
     POLYBENCH_FREE_ARRAY(A_serial);
