@@ -41,57 +41,7 @@ static void print_array(int n,
 
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
-/*
-#pragma omp declare target
-static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
-{
-    int i, j, k;
-    #pragma omp target data map(tofrom: A[0:n][0:n])
-    {
-        #pragma omp target teams num_teams(_PB_N/NTHREADS_GPU) thread_limit(NTHREADS_GPU)
-        {
-            for (k = 0; k < _PB_N; k++) {
-              
-                #pragma omp distribute parallel for simd num_threads(NTHREADS_GPU) schedule(static,NTHREADS_GPU)
-                for (j = k + 1; j < _PB_N; j++) {
-                    A[k][j] = A[k][j] / A[k][k];
-                }
 
-                #pragma omp distribute parallel for simd  num_threads(NTHREADS_GPU) schedule(dynamic,NTHREADS_GPU) 
-                for (i = k + 1; i < _PB_N; i++) {
-                    for (j = k + 1; j < _PB_N; j++) {
-                        A[i][j] -= A[i][k] * A[k][j];
-                    } 
-                }
-            }
-        }
-    }
-}
-#pragma omp end declare target
-*/
-/*
-static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
-{
-    int i, j, k;
-     #pragma omp target data map(tofrom: A[0:n][0:n])
-    {
-            
-            for (k = 0; k < _PB_N; k++) {
-                #pragma omp  parallel for simd num_threads(NTHREADS_GPU) schedule(static,NTHREADS_GPU)
-                for (j = k + 1; j < _PB_N; j++) {
-                    A[k][j] = A[k][j] /A[k][k];;
-                }
-
-                #pragma omp  parallel for simd  num_threads(NTHREADS_GPU) schedule(dynamic,NTHREADS_GPU) 
-                for (i = k + 1; i < _PB_N; i++) {
-                    for (j = k + 1; j < _PB_N; j++) {
-                        A[i][j] -=  A[i][k] * A[k][j];
-                    } 
-                }
-            }
-      }
-}
-*/
 /*
 static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
 {
@@ -120,15 +70,26 @@ __global__ void lu_division(DATA_TYPE *A, int n, int k) {
 
 /* CUDA kernel per il calcolo del ciclo su `i` e `j` */
 __global__ void lu_elimination(DATA_TYPE *A, int n, int k) {
-    int i = blockIdx.x + k + 1; // elemento sotto alla diagonale di inizio
-    int j = threadIdx.x + blockIdx.y * blockDim.y;
+    int i = blockIdx.x * blockDim.x + threadIdx.x + k + 1;
+    int j = blockIdx.y * blockDim.y + threadIdx.y + k + 1;
 
-    if (i < n && j > k && j < n) {
+
+    if (i < n && j > k && j < n && i > k) {
+
         A[i * n + j] -= A[i * n + k] * A[k * n + j];
     }
 }
 
 static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n)) {
+   printf("cuda\n");
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            printf("%.6f ", A[i][j]);
+        }
+        printf("\n");
+    }
+
+       
     DATA_TYPE *d_A;
     size_t size = n * n * sizeof(DATA_TYPE);
 
@@ -158,66 +119,95 @@ static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n)) {
  
     /* Copia i risultati dalla GPU alla CPU */
     cudaMemcpy(A, d_A, size, cudaMemcpyDeviceToHost);
-
+    printf("cuda dopo tutto\n");
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            printf("%.6f ", A[i][j]);
+        }
+        printf("\n");
+    }
     /* Libera la memoria sulla GPU */
     cudaFree(d_A);
 }
+
 void kernel_lu_serial(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n)) {
-    for (int k = 0; k < n; k++) {
-        for (int j = k + 1; j < n; j++) {
-            A[k][j] = A[k][j] / A[k][k];
+    int i,j,k;
+   printf("seriale\n");
+    for (int i = 0; i < _PB_N; i++) {
+        for (int j = 0; j < _PB_N; j++) {
+            printf("%.6f ", A[i][j]);
         }
-        for (int i = k + 1; i < n; i++) {
-            for (int j = k + 1; j < n; j++) {
+        printf("\n");
+    }
+
+
+    for (k = 0; k < _PB_N; k++) {
+	for (j = k + 1; j < _PB_N; j++) {
+            
+	     A[k][j] =A[k][j] / A[k][k];
+	}    
+        
+        for (i = k + 1; i < _PB_N; i++) { 	
+	        for (j = k + 1; j < _PB_N; j++) {
+		        printf("A[%d][%d] = %f - %f * %f \n",i,j,A[i][j],A[i][k],A[k][j]);
                 A[i][j] -= A[i][k] * A[k][j];
             }
+        
+	    }
+    }
+    printf("seriale dopo tutto \n"); 
+    for (int i = 0; i < _PB_N; i++) {
+        for (int j = 0; j < _PB_N; j++) {
+            printf("%.6f ", A[i][j]);
         }
+        printf("\n");
     }
 }
 
 void test_correctness(int n, DATA_TYPE POLYBENCH_2D(A_serial, N, N, n, n), DATA_TYPE POLYBENCH_2D(A_cuda, N, N, n, n)) {
+
     printf("Confronto risultati:\n");
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
-
-            printf("Differenza trovata in A[%d][%d]: serial=%.6f, cuda=%.6f\n", i, j, A_serial[i][j], A_cuda[i][j]);
+                printf("Differenza trovata in A[%d][%d]: serial=%.6f, cuda=%.6f\n", i, j, A_serial[i][j], A_cuda[i][j]);
+                
         }
     }
-    printf("I risultati sono equivalenti.\n");
     return;
+    printf("I risultati sono equivalenti.\n");
 }
 
 
 int main(int argc, char **argv) {
     /* Retrieve problem size. */
+    //int n = N;
     int n = N;
-
     /* Variable declaration/allocation. */
     POLYBENCH_2D_ARRAY_DECL(A_cuda, DATA_TYPE, N, N, n, n);
-        POLYBENCH_2D_ARRAY_DECL(A_serial, DATA_TYPE, N, N, n, n);
-
+    POLYBENCH_2D_ARRAY_DECL(A_serial, DATA_TYPE, N, N, n, n);
     /* Initialize array(s). */
     init_array(n, POLYBENCH_ARRAY(A_cuda));
     init_array(n, POLYBENCH_ARRAY(A_serial));
+
     /* Start timer. */
     polybench_start_instruments;
 
     /* Run kernel. */
     kernel_lu(n, POLYBENCH_ARRAY(A_cuda));
     kernel_lu_serial(n, POLYBENCH_ARRAY(A_serial));
+
     /* Stop and print timer. */
     polybench_stop_instruments;
     polybench_print_instruments;
-    test_correctness(n, POLYBENCH_ARRAY(A_serial), POLYBENCH_ARRAY(A_cuda));
 
-   
+
 
     /* Prevent dead-code elimination. All live-out data must be printed
        by the function call in argument. */
     polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(A_serial)));
     polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(A_cuda)));
 
-   
+    test_correctness(n, POLYBENCH_ARRAY(A_serial), POLYBENCH_ARRAY(A_cuda));
 
     /* Be clean. */
     POLYBENCH_FREE_ARRAY(A_serial);
