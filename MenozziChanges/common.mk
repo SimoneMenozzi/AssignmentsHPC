@@ -15,6 +15,8 @@ CC=gcc
 NVCC=/usr/local/cuda/bin/nvcc # Path al compilatore CUDA
 LD=ld
 OBJDUMP=objdump
+CUDA_HOME := /usr/local/cuda
+LIB_PATHS := /usr/ext/lib:$(CUDA_HOME)/lib
 
 # Opzioni di ottimizzazione
 OPT=-O2 -g
@@ -23,6 +25,7 @@ NVFLAGS=$(CFLAGS) -Xcompiler -fopenmp -lineinfo
 LDFLAGS=-lm -lcudart $(EXT_LDFLAGS)
 
 .PHONY: all exe clean veryclean run profile metrics
+
 
 # Regola principale
 all : exe
@@ -42,7 +45,9 @@ run: $(EXE)
 	./$(EXE)
 
 profile: $(EXE)
-	sudo LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH} LIBRARY_PATH=/usr/local/cuda/lib64:${LIBRARY_PATH} nvprof ./$(EXE)
+	LD_LIBRARY_PATH=$(LIB_PATHS):$(LD_LIBRARY_PATH) \
+	LIBRARY_PATH=$(LIB_PATHS):$(LIBRARY_PATH) \
+	sudo $(CUDA_HOME)/bin/nvprof ./$(EXE)
 
 metrics: $(EXE)
 	sudo LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH} LIBRARY_PATH=/usr/local/cuda/lib64:${LIBRARY_PATH} nvprof --print-gpu-trace --metrics "eligible_warps_per_cycle,achieved_occupancy,sm_efficiency,ipc" ./$(EXE)
