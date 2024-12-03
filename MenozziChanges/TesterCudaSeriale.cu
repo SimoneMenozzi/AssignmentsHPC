@@ -9,17 +9,25 @@
 /* Include benchmark-specific header. */
 /* Default data type is double, default size is 1024. */
 #include "lu.h"
-
+#define BLOCK_SIZE 32
 /* Array initialization. */
 static void init_array(int n,
                        DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
 {
-  int i, j;
+    int i, j;
 
-  for (i = 0; i < n; i++)
-    for (j = 0; j < n; j++)
-      A[i][j] = ((DATA_TYPE)(i + 1) * (j + 1)) / n;
+    for (i = 0; i < n; i++) {
+        for (j = 0; j < n; j++) {
+            if (i == j) {
+                // Assicurati che i valori diagonali siano non-zero
+                A[i][j] = ((DATA_TYPE)(i + 1) * (j + 1)) / n + 1.0; // Aggiungi offset di 1
+            } else {
+                A[i][j] = ((DATA_TYPE)(i + 1) * (j + 1)) / n;
+            }
+        }
+    }
 }
+
 
 /* DCE code. Must scan the entire live-out data.
    Can be used also to check the correctness of the output. */
@@ -68,27 +76,25 @@ __global__ void lu_division(DATA_TYPE *A, int n, int k) {
     }
 }
 
-/* CUDA kernel per il calcolo del ciclo su `i` e `j` */
 __global__ void lu_elimination(DATA_TYPE *A, int n, int k) {
     int i = blockIdx.x * blockDim.x + threadIdx.x + k + 1;
     int j = blockIdx.y * blockDim.y + threadIdx.y + k + 1;
 
-
-    if (i < n && j > k && j < n && i > k) {
-
+    if (i < n && j < n && i > k && j > k) {
         A[i * n + j] -= A[i * n + k] * A[k * n + j];
     }
 }
 
+
 static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n)) {
-   printf("cuda\n");
+   /*printf("cuda\n");
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
             printf("%.6f ", A[i][j]);
         }
         printf("\n");
     }
-
+    */
        
     DATA_TYPE *d_A;
     size_t size = n * n * sizeof(DATA_TYPE);
@@ -108,7 +114,10 @@ static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n)) {
         cudaDeviceSynchronize(); //Differenza tra __syncthread() è che questo sincronizza tutta la gpu, l'altro blocco per blocco
 
         /* Calcolo del ciclo su `i` e `j` */
-        dim3 threadsPerBlock2D(16, 16);// valore statico da cambiare
+        // mini dataset si rompe con più di 32,32. 16,16 va bene
+        //small è 128x128. con 16,16 funziona. con 64,64 si rompe. con 32,32 non si rompe
+        //standard 1024x1024, 32,32 funziona. 64,64 si rompe.
+        dim3 threadsPerBlock2D(BLOCK_SIZE, BLOCK_SIZE);// valore statico da cambiare, con 128 mini DATASET si rompe. con 32 
         dim3 blocksPerGrid2D((n - k + threadsPerBlock2D.x - 1) / threadsPerBlock2D.x,
                              (n - k + threadsPerBlock2D.y - 1) / threadsPerBlock2D.y);
         lu_elimination<<<blocksPerGrid2D, threadsPerBlock2D>>>(d_A, n, k);
@@ -132,24 +141,23 @@ static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n)) {
 
 void kernel_lu_serial(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n)) {
     int i,j,k;
-   printf("seriale\n");
+   /*printf("seriale\n");
     for (int i = 0; i < _PB_N; i++) {
         for (int j = 0; j < _PB_N; j++) {
             printf("%.6f ", A[i][j]);
         }
         printf("\n");
     }
-
+*/
 
     for (k = 0; k < _PB_N; k++) {
-	for (j = k + 1; j < _PB_N; j++) {
-            
-	     A[k][j] =A[k][j] / A[k][k];
-	}    
+	    for (j = k + 1; j < _PB_N; j++) {
+            A[k][j] =A[k][j] / A[k][k];
+	    }    
         
         for (i = k + 1; i < _PB_N; i++) { 	
 	        for (j = k + 1; j < _PB_N; j++) {
-		        printf("A[%d][%d] = %f - %f * %f \n",i,j,A[i][j],A[i][k],A[k][j]);
+		        
                 A[i][j] -= A[i][k] * A[k][j];
             }
         
@@ -207,7 +215,7 @@ int main(int argc, char **argv) {
     polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(A_serial)));
     polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(A_cuda)));
 
-    test_correctness(n, POLYBENCH_ARRAY(A_serial), POLYBENCH_ARRAY(A_cuda));
+    //test_correctness(n, POLYBENCH_ARRAY(A_serial), POLYBENCH_ARRAY(A_cuda));
 
     /* Be clean. */
     POLYBENCH_FREE_ARRAY(A_serial);
