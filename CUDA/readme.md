@@ -1,0 +1,10 @@
+Run:
+make EXT_CFLAGS='-DPOLYBENCH_TIME -DEXTRALARGE_DATASET' clean all run
+make EXT_CFLAGS='-DPOLYBENCH_TIME -DLARGE_DATASET' clean all run
+make EXT_CFLAGS='-DPOLYBENCH_TIME' clean all run
+make EXT_CFLAGS='-DPOLYBENCH_TIME -DSMALL_DATASET' clean all run
+make EXT_CFLAGS='-DPOLYBENCH_TIME -DMINI_DATASET' clean all run
+
+Profile:
+make EXT_CFLAGS='-DPOLYBENCH_TIME' clean all profile
+
